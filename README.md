@@ -1,2 +1,2 @@
 # jayseregon-ai-toolbox
-AI Toolbox
+AI toolbox web API using FastAPI
