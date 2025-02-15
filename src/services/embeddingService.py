@@ -43,10 +43,11 @@ class EmbeddingService:
         )
 
     def process_keywords(
-        self, keywords: List[str], n_components: Literal[2, 3] = 2
+        self,
+        keywords: List[str],
     ) -> Embeddings:
         """Generate embeddings from keywords and structure them in the Embeddings schema."""
         embeddings = self.create_embeddings(keywords)
-        reduced = self.reduce_dimensions(embeddings, n_components=n_components)
+        reduced = self.reduce_dimensions(embeddings)
         normalized = self.get_normalized_list(reduced)
         return self.get_embeddings(normalized, keywords)

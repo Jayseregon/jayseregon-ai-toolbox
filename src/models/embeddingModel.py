@@ -1,16 +1,14 @@
-from typing import List, Literal
+from typing import List
 
 from pydantic import BaseModel
 
 
-class SentenceRequest(BaseModel):
+class Sentence(BaseModel):
     text: str
-    n_components: Literal[2, 3] = 2
 
 
-class KeywordsRequest(BaseModel):
+class Keywords(BaseModel):
     keywords: List[str]
-    n_components: Literal[2, 3] = 2
 
 
 class EmbeddedKeyword(BaseModel):
