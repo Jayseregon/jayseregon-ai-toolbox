@@ -194,3 +194,168 @@ async def test_rate_limiter_custom_callback():
         assert "X-RateLimit-Retry-After" in response.headers
 
     await FastAPILimiter.close()
+
+
+# Additional Integration Tests
+@pytest.mark.asyncio
+async def test_multiple_rate_limiters():
+    test_app = FastAPI()
+
+    @test_app.get("/multi-limit")
+    async def test_route(
+        rate_limit_1: None = Depends(RateLimiter(times=2, seconds=5)),
+        rate_limit_2: None = Depends(RateLimiter(times=1, minutes=1)),
+    ):
+        return {"status": "ok"}
+
+    backend_mock = AsyncMock()
+    # First limiter allows 2 requests, second only 1
+    backend_mock.eval_limiter.side_effect = [0, 0, 1000]
+    await FastAPILimiter.init(backend_mock)
+
+    with TestClient(test_app) as client:
+        # First request passes both limiters
+        response = client.get("/multi-limit")
+        assert response.status_code == 200
+
+        # Second request blocked by second limiter
+        response = client.get("/multi-limit")
+        assert response.status_code == 429
+
+    await FastAPILimiter.close()
+
+
+@pytest.mark.asyncio
+async def test_different_time_windows():
+    test_app = FastAPI()
+    times = 3
+
+    @test_app.get("/sliding-window")
+    async def test_route(
+        rate_limit: None = Depends(RateLimiter(times=times, milliseconds=500))
+    ):
+        return {"status": "ok"}
+
+    backend_mock = AsyncMock()
+    backend_mock.eval_limiter.side_effect = [0] * times + [1000]
+    await FastAPILimiter.init(backend_mock)
+
+    with TestClient(test_app) as client:
+        # Make exactly 'times' requests
+        for _ in range(times):
+            response = client.get("/sliding-window")
+            assert response.status_code == 200
+
+        # Next request should be rate limited
+        response = client.get("/sliding-window")
+        assert response.status_code == 429
+
+        # Verify the retry-after header is close to 500ms
+        retry_after = int(response.headers["Retry-After"])
+        assert 0 < retry_after <= 1
+
+    await FastAPILimiter.close()
+
+
+@pytest.mark.asyncio
+async def test_path_specific_rate_limiting():
+    test_app = FastAPI()
+
+    @test_app.get("/path1")
+    async def route1(rate_limit: None = Depends(RateLimiter(times=1, seconds=5))):
+        return {"path": 1}
+
+    @test_app.get("/path2")
+    async def route2(rate_limit: None = Depends(RateLimiter(times=1, seconds=5))):
+        return {"path": 2}
+
+    backend_mock = AsyncMock()
+    backend_mock.eval_limiter.side_effect = [0, 0, 1000, 1000]
+    await FastAPILimiter.init(backend_mock)
+
+    with TestClient(test_app) as client:
+        # First requests to both paths should succeed
+        assert client.get("/path1").status_code == 200
+        assert client.get("/path2").status_code == 200
+
+        # Second requests to both paths should be limited
+        assert client.get("/path1").status_code == 429
+        assert client.get("/path2").status_code == 429
+
+    await FastAPILimiter.close()
+
+
+@pytest.mark.asyncio
+async def test_ip_based_rate_limiting():
+    test_app = FastAPI()
+
+    @test_app.get("/ip-test")
+    async def test_route(rate_limit: None = Depends(RateLimiter(times=1, seconds=5))):
+        return {"status": "ok"}
+
+    backend_mock = AsyncMock()
+    backend_mock.eval_limiter.side_effect = [0, 0, 1000]
+    await FastAPILimiter.init(backend_mock)
+
+    with TestClient(test_app) as client:
+        # Request with direct IP
+        response = client.get("/ip-test")
+        assert response.status_code == 200
+
+        # Request with different forwarded IP should get its own limit
+        response = client.get("/ip-test", headers={"X-Forwarded-For": "1.2.3.4"})
+        assert response.status_code == 200
+
+        # Second request with same forwarded IP should be limited
+        response = client.get("/ip-test", headers={"X-Forwarded-For": "1.2.3.4"})
+        assert response.status_code == 429
+
+    await FastAPILimiter.close()
+
+
+@pytest.mark.asyncio
+async def test_websocket_context_rate_limiting():
+    # Create WebSocket mocks with different contexts
+    ws1 = AsyncMock(spec=WebSocket)
+    ws1.scope = {"path": "/ws"}
+    ws1.client = AsyncMock(host="127.0.0.1")
+    ws1.headers = {}
+
+    ws2 = AsyncMock(spec=WebSocket)
+    ws2.scope = {"path": "/ws"}
+    ws2.client = AsyncMock(host="127.0.0.1")
+    ws2.headers = {}
+
+    limiter = WebSocketRateLimiter(times=1, seconds=5)
+
+    backend_mock = AsyncMock()
+    backend_mock.eval_limiter.side_effect = [0, 0, 1000]
+    await FastAPILimiter.init(backend_mock)
+
+    # First connection with context "user1" succeeds
+    await limiter(ws1, context_key="user1")
+    assert not ws1.close.called
+
+    # Connection with different context "user2" succeeds
+    await limiter(ws2, context_key="user2")
+    assert not ws2.close.called
+
+    # Second connection with context "user1" is limited
+    await limiter(ws1, context_key="user1")
+    ws1.close.assert_called_once_with(code=1013)
+
+    await FastAPILimiter.close()
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_cleanup():
+    """Test that FastAPILimiter.close() properly cleans up resources"""
+    backend_mock = AsyncMock()
+    await FastAPILimiter.init(backend_mock)
+
+    # Verify initialization
+    assert FastAPILimiter.backend is not None
+
+    # Close and verify cleanup
+    await FastAPILimiter.close()
+    assert FastAPILimiter.backend is None

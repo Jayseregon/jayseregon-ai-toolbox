@@ -117,7 +117,8 @@ end"""
 
     @classmethod
     async def close(cls) -> None:
-        # If the backend has a close method, call it.
+        """Close and cleanup the rate limiter."""
+        # If the backend has a close method, call it
         if cls.backend and hasattr(cls.backend, "close"):
             close_method = getattr(cls.backend, "close")
             if callable(close_method):
@@ -125,3 +126,11 @@ end"""
                     await close_method()
                 else:
                     await asyncio.to_thread(close_method)
+
+        # Reset all class attributes
+        cls.backend = None
+        cls.redis = None
+        cls.lua_sha = None
+        cls.identifier = None
+        cls.http_callback = None
+        cls.ws_callback = None
