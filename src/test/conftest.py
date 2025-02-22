@@ -55,3 +55,25 @@ async def mock_rate_limiter():
     yield
     if FastAPILimiter.backend:
         await FastAPILimiter.close()
+
+
+@pytest.fixture
+def mock_env_state(monkeypatch):
+    """Fixture to control environment state and variables for tests"""
+
+    def _set_env(env_state=None, env_vars=None):
+        # Clear all relevant environment variables
+        for key in list(os.environ.keys()):
+            if any(prefix in key for prefix in ["ENV_STATE", "DEV_", "PROD_", "TEST_"]):
+                monkeypatch.delenv(key, raising=False)
+
+        # Set new environment state if provided
+        if env_state is not None:
+            monkeypatch.setenv("ENV_STATE", env_state)
+
+        # Set additional environment variables if provided
+        if env_vars:
+            for key, value in env_vars.items():
+                monkeypatch.setenv(key, value)
+
+    return _set_env
