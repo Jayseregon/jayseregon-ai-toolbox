@@ -7,19 +7,16 @@ from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 
-from src.models.embedding import EmbeddedKeyword, Embeddings
+from src.models.embedding import EmbeddedKeyword, Embeddings, ModelName
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 
-# model_1 = "all-mpnet-base-v2"
-# model_2 = "all-MiniLM-L6-v2"
-# model_3 = "all-MiniLM-L12-v2"
-
 
 class EmbeddingService:
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
+    def __init__(self, model_name: ModelName) -> None:
         try:
+            logger.debug(f"Loading model {model_name}")
             self.model = SentenceTransformer(model_name)
         except Exception as e:
             logger.error(f"Failed to load model {model_name}: {str(e)}")
@@ -44,7 +41,7 @@ class EmbeddingService:
 
     def get_normalized_list(
         self, embeddings: np.ndarray, value_range: Tuple[float, float] = (0, 1)
-    ) -> List:
+    ) -> List[float]:
         logger.debug("Normalizing embeddings.")
         scaler = MinMaxScaler(feature_range=value_range)
         normalized = scaler.fit_transform(embeddings)

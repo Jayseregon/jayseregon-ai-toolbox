@@ -1,6 +1,13 @@
+from enum import Enum
 from typing import Annotated
 
 from pydantic import BaseModel, Field
+
+
+class ModelName(str, Enum):
+    MPNET = "all-mpnet-base-v2"
+    MINI_L6 = "all-MiniLM-L6-v2"
+    MINI_L12 = "all-MiniLM-L12-v2"
 
 
 class Sentence(BaseModel):
@@ -8,7 +15,7 @@ class Sentence(BaseModel):
 
 
 class Keywords(BaseModel):
-    keywords: Annotated[list[str], Field(min_items=2)]
+    keywords: Annotated[list[str], Field(min_items=2, max_items=100)]
 
 
 class EmbeddedKeyword(BaseModel):
