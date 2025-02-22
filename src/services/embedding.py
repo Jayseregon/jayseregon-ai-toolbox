@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 
-from src.models.embeddingModel import EmbeddedKeyword, Embeddings
+from src.models.embedding import EmbeddedKeyword, Embeddings
 
 # model_1 = "all-mpnet-base-v2"
 # model_2 = "all-MiniLM-L6-v2"

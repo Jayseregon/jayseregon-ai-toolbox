@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from src.routes.embeddingRouter import router as embedding_router
+from src.routes.embedding import router as embedding_router
 
 app = FastAPI()
 

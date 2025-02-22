@@ -1,0 +1,8 @@
+services:
+  jayseregon-redis:
+    image: redis:latest
+    container_name: dev-jayseregon-redis
+    env_file:
+      - .env
+    ports:
+      - 6379:6379

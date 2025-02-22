@@ -5,7 +5,7 @@ description = "AI toolbox web API using FastAPI"
 authors = [{ name = "jayseregon", email = "jayseregon@gmail.com" }]
 license = { text = "LGPL-3.0-or-later" }
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<4.0"
 dependencies = [
     "fastapi[standard]",
     "transformers",
@@ -17,6 +17,13 @@ dependencies = [
     "numpy",
     "sentence-transformers",
     "pydantic",
+    "pytest",
+    "pydantic-settings",
+    "python-dotenv",
+    "rich",
+    "asgi-correlation-id",
+    "python-json-logger",
+    "redis",
 ]
 
 [tool.poetry]

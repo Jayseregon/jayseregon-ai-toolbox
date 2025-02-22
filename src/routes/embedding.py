@@ -2,8 +2,8 @@ from functools import lru_cache
 
 from fastapi import APIRouter, Depends
 
-from src.models.embeddingModel import Keywords, Sentence
-from src.services.embeddingService import Embeddings, EmbeddingService
+from src.models.embedding import Keywords, Sentence
+from src.services.embedding import Embeddings, EmbeddingService
 
 router = APIRouter(prefix="/v1/embedding", tags=["embedding"])
 
