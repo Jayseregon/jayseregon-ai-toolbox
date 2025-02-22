@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import redis.asyncio as redis
+import valkey
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exception_handlers import http_exception_handler
@@ -13,11 +14,37 @@ from src.configs.env_config import config
 from src.configs.log_config import configure_logging
 from src.routes.embedding import router as embedding_router
 from src.security.rateLimiter import FastAPILimiter
-from src.security.rateLimiter.backends import RedisRateLimiterBackend
+from src.security.rateLimiter.backends import (
+    RedisRateLimiterBackend,
+    ValkeyRateLimiterBackend,
+)
 from src.security.rateLimiter.depends import RateLimiter
 
 # Initialize logging
 logger = logging.getLogger(__name__)
+
+
+async def get_backend_instance():
+    if config.ENV_STATE == "prod":
+        # Use Redis as the rate limiter backend for production
+        logger.info("Using Redis as the rate limiter backend")
+        redis_client = redis.from_url(config.REDIS_URL)
+
+        if not redis_client:
+            logger.error("Please configure Redis client for rate limiting")
+            raise Exception("Please configure Redis client for rate limiting")
+
+        return RedisRateLimiterBackend(redis_client)
+
+    # Use Valkey as the rate limiter backend for development
+    logger.info("Using Valkey as the rate limiter backend")
+    valkey_client = valkey.from_url(config.VALKEY_URL)
+
+    if not valkey_client:
+        logger.error("Please configure Valkey client for rate limiting")
+        raise Exception("Please configure Valkey client for rate limiting")
+
+    return ValkeyRateLimiterBackend(valkey_client)
 
 
 @asynccontextmanager
@@ -25,14 +52,11 @@ async def lifespan(app: FastAPI):
     # Configure logging
     configure_logging()
 
-    # Initialize Redis client
-    redis_client = redis.from_url(config.REDIS_URL)
-    if not redis_client:
-        raise Exception("Please configure Redis client for rate limiting")
+    # Get rate limiter backend instance
+    backend_instance = await get_backend_instance()
 
     # Initialize rate limiter
-    backend_instance = RedisRateLimiterBackend(redis_client)
-    await FastAPILimiter.init(redis_client, backend=backend_instance)
+    await FastAPILimiter.init(backend=backend_instance)
     yield
     await FastAPILimiter.close()
 

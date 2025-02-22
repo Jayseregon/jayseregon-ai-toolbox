@@ -21,9 +21,11 @@ __all__ = [
     "ws_default_callback",
 ]
 
+import asyncio
+import inspect
 import logging
 from math import ceil
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from fastapi import HTTPException
 from starlette.requests import Request
@@ -31,7 +33,7 @@ from starlette.responses import Response
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from starlette.websockets import WebSocket
 
-from .backends import RedisRateLimiterBackend
+from .backends import RateLimiterBackend
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +67,15 @@ async def ws_default_callback(ws: WebSocket, pexpire: int):
 
 
 class FastAPILimiter:
-    redis = None
-    prefix: Optional[str] = None
+    backend: Optional[RateLimiterBackend] = None
+    redis: Any = None
     lua_sha: Optional[str] = None
+    lua_script: str = "/* Lua rate limiting script */"
     identifier: Optional[Callable] = None
     http_callback: Optional[Callable] = None
     ws_callback: Optional[Callable] = None
+    prefix: str = "rate-limit"
+
     lua_script = """local key = KEYS[1]
 local limit = tonumber(ARGV[1])
 local expire_time = ARGV[2]
@@ -87,31 +92,36 @@ else
     redis.call("SET", key, 1,"px",expire_time)
  return 0
 end"""
-    backend: Optional[object] = None
 
     @classmethod
     async def init(
         cls,
-        redis,
+        backend: RateLimiterBackend,
+        redis_instance: Any = None,
         prefix: str = "fastapi-limiter",
         identifier: Callable = default_identifier,
         http_callback: Callable = http_default_callback,
         ws_callback: Callable = ws_default_callback,
-        backend: Optional[object] = None,
     ) -> None:
-        cls.redis = redis
-        cls.backend = backend if backend is not None else RedisRateLimiterBackend(redis)
+        cls.backend = backend
+        cls.redis = redis_instance or getattr(backend, "redis", None)
         cls.prefix = prefix
         cls.identifier = identifier
         cls.http_callback = http_callback
         cls.ws_callback = ws_callback
         try:
-            cls.lua_sha = await redis.script_load(cls.lua_script)
+            cls.lua_sha = await cls.backend.load_script(cls.lua_script)
         except Exception as e:
             logger.error("Error loading Lua script: %s", e)
             raise
 
     @classmethod
     async def close(cls) -> None:
-        if cls.redis:
-            await cls.redis.close()
+        # If the backend has a close method, call it.
+        if cls.backend and hasattr(cls.backend, "close"):
+            close_method = getattr(cls.backend, "close")
+            if callable(close_method):
+                if inspect.iscoroutinefunction(close_method):
+                    await close_method()
+                else:
+                    await asyncio.to_thread(close_method)

@@ -16,6 +16,7 @@ class GlobalConfig(BaseConfig):
     OPENAI_API_KEY: Optional[str] = None
     ALLOWED_HOSTS: str = ""
     REDIS_URL: Optional[str] = None
+    VALKEY_URL: Optional[str] = None
 
     @property
     def get_allowed_hosts(self) -> list[str]:

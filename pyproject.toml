@@ -24,6 +24,7 @@ dependencies = [
     "asgi-correlation-id",
     "python-json-logger",
     "redis",
+    "valkey[libvalkey] (>=6.1.0,<7.0.0)",
 ]
 
 [tool.poetry]
