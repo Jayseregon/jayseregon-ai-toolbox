@@ -1,11 +1,16 @@
+import logging
 from typing import List, Literal, Tuple
 
 import numpy as np
+from fastapi import HTTPException
 from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 
 from src.models.embedding import EmbeddedKeyword, Embeddings
+
+# Initialize logging
+logger = logging.getLogger(__name__)
 
 # model_1 = "all-mpnet-base-v2"
 # model_2 = "all-MiniLM-L6-v2"
@@ -14,23 +19,33 @@ from src.models.embedding import EmbeddedKeyword, Embeddings
 
 class EmbeddingService:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
-        self.model = SentenceTransformer(model_name)
+        try:
+            self.model = SentenceTransformer(model_name)
+        except Exception as e:
+            logger.error(f"Failed to load model {model_name}: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail="Failed to initialize embedding model"
+            )
 
     def create_embeddings(self, keywords: List[str]) -> np.ndarray:
-        """Encode a list of keywords into embeddings."""
-        return self.model.encode(keywords)
+        try:
+            logger.debug(f"Encoding keywords: {keywords}")
+            return self.model.encode(keywords)
+        except Exception as e:
+            logger.error(f"Embedding creation failed: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to create embeddings")
 
     def reduce_dimensions(
         self, embeddings: np.ndarray, n_components: Literal[2, 3] = 2
     ) -> np.ndarray:
-        """Reduce dimensionality using PCA."""
+        logger.debug(f"Reducing dimensions with {n_components} components")
         pca = PCA(n_components=n_components)
         return pca.fit_transform(embeddings)
 
     def get_normalized_list(
         self, embeddings: np.ndarray, value_range: Tuple[float, float] = (0, 1)
     ) -> List:
-        """Normalize the reduced embeddings within the specified range."""
+        logger.debug("Normalizing embeddings.")
         scaler = MinMaxScaler(feature_range=value_range)
         normalized = scaler.fit_transform(embeddings)
         return normalized.tolist()
@@ -38,7 +53,7 @@ class EmbeddingService:
     def get_embeddings(
         self, normalized_embeddings: List, keywords: List[str]
     ) -> Embeddings:
-        """Map normalized embeddings to their corresponding keywords."""
+        logger.debug("Mapping normalized embeddings.")
         return Embeddings(
             keywords=[
                 EmbeddedKeyword(word=word, x=x, y=y)
@@ -50,8 +65,13 @@ class EmbeddingService:
         self,
         keywords: List[str],
     ) -> Embeddings:
-        """Generate embeddings from keywords and structure them in the Embeddings schema."""
-        embeddings = self.create_embeddings(keywords)
-        reduced = self.reduce_dimensions(embeddings)
-        normalized = self.get_normalized_list(reduced)
-        return self.get_embeddings(normalized, keywords)
+        try:
+            embeddings = self.create_embeddings(keywords)
+            reduced = self.reduce_dimensions(embeddings)
+            normalized = self.get_normalized_list(reduced)
+            return self.get_embeddings(normalized, keywords)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Keyword processing failed: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to process keywords")

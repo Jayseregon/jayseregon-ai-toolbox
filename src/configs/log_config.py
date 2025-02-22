@@ -45,7 +45,7 @@ def configure_logging() -> None:
                     "level": "DEBUG",
                     "formatter": "file",
                     "filters": ["correlation_id"],
-                    "filename": "fastapi-ai-tools.log",
+                    "filename": "jayseregon-ai-toolbox.log",
                     "maxBytes": 1024 * 1024,  # 1 MB
                     "backupCount": 2,
                     "encoding": "utf8",

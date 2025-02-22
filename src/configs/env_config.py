@@ -14,18 +14,8 @@ class GlobalConfig(BaseConfig):
     # DB_FORCE_ROLL_BACK: bool = False
     # LOGTAIL_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
-    SECRET_KEY: Optional[str] = None
-    ALLOWED_ISSUERS: str = ""
     ALLOWED_HOSTS: str = ""
     REDIS_URL: Optional[str] = None
-
-    @property
-    def get_allowed_issuers(self) -> list[str]:
-        return (
-            [issuer.strip() for issuer in self.ALLOWED_ISSUERS.split(",")]
-            if self.ALLOWED_ISSUERS
-            else []
-        )
 
     @property
     def get_allowed_hosts(self) -> list[str]:
