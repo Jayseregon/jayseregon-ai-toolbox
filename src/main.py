@@ -13,6 +13,7 @@ from src.configs.env_config import config
 from src.configs.log_config import configure_logging
 from src.routes.embedding import router as embedding_router
 from src.security.rateLimiter import FastAPILimiter
+from src.security.rateLimiter.backends import RedisRateLimiterBackend
 from src.security.rateLimiter.depends import RateLimiter
 
 # Initialize logging
@@ -23,12 +24,15 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Configure logging
     configure_logging()
+
     # Initialize Redis client
     redis_client = redis.from_url(config.REDIS_URL)
     if not redis_client:
         raise Exception("Please configure Redis client for rate limiting")
-    # Initialize FastAPILimiter
-    await FastAPILimiter.init(redis_client)
+
+    # Initialize rate limiter
+    backend_instance = RedisRateLimiterBackend(redis_client)
+    await FastAPILimiter.init(redis_client, backend=backend_instance)
     yield
     await FastAPILimiter.close()
 

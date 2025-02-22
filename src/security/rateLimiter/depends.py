@@ -45,9 +45,15 @@ class RateLimiter:
         self.callback = callback
 
     async def _check(self, key):
-        redis_instance = FastAPILimiter.redis
-        pexpire = await redis_instance.evalsha(
-            FastAPILimiter.lua_sha, 1, key, str(self.times), str(self.milliseconds)
+        backend = FastAPILimiter.backend
+        if not backend:
+            raise Exception("Backend not initialized")
+        pexpire = await backend.eval_limiter(
+            key,
+            self.times,
+            self.milliseconds,
+            FastAPILimiter.lua_sha,
+            FastAPILimiter.lua_script,
         )
         return pexpire
 

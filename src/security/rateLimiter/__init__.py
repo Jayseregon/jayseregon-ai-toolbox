@@ -31,6 +31,8 @@ from starlette.responses import Response
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from starlette.websockets import WebSocket
 
+from .backends import RedisRateLimiterBackend
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,13 +46,6 @@ async def default_identifier(request: Union[Request, WebSocket]):
 
 
 async def http_default_callback(request: Request, response: Response, pexpire: int):
-    """
-    default callback when too many requests
-    :param request:
-    :param pexpire: The remaining milliseconds
-    :param response:
-    :return:
-    """
     expire = ceil(pexpire / 1000)
     raise HTTPException(
         HTTP_429_TOO_MANY_REQUESTS,
@@ -60,10 +55,6 @@ async def http_default_callback(request: Request, response: Response, pexpire: i
 
 
 async def ws_default_callback(ws: WebSocket, pexpire: int):
-    """
-    Default callback when too many websocket requests.
-    Instead of throwing an HTTPException, close the WebSocket.
-    """
     expire = ceil(pexpire / 1000)
     logger.warning(
         "WebSocket rate limit exceeded, closing connection. Retry-After: %s seconds",
@@ -96,6 +87,7 @@ else
     redis.call("SET", key, 1,"px",expire_time)
  return 0
 end"""
+    backend: Optional[object] = None
 
     @classmethod
     async def init(
@@ -105,8 +97,10 @@ end"""
         identifier: Callable = default_identifier,
         http_callback: Callable = http_default_callback,
         ws_callback: Callable = ws_default_callback,
+        backend: Optional[object] = None,
     ) -> None:
         cls.redis = redis
+        cls.backend = backend if backend is not None else RedisRateLimiterBackend(redis)
         cls.prefix = prefix
         cls.identifier = identifier
         cls.http_callback = http_callback
