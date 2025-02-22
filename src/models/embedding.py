@@ -15,7 +15,7 @@ class Sentence(BaseModel):
 
 
 class Keywords(BaseModel):
-    keywords: Annotated[list[str], Field(min_items=2, max_items=100)]
+    keywords: Annotated[list[str], Field(min_length=2, max_length=100)]
 
 
 class EmbeddedKeyword(BaseModel):
