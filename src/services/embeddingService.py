@@ -7,6 +7,10 @@ from sklearn.preprocessing import MinMaxScaler
 
 from src.models.embeddingModel import EmbeddedKeyword, Embeddings
 
+# model_1 = "all-mpnet-base-v2"
+# model_2 = "all-MiniLM-L6-v2"
+# model_3 = "all-MiniLM-L12-v2"
+
 
 class EmbeddingService:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:

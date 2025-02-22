@@ -1,6 +1,6 @@
-from typing import List
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Sentence(BaseModel):
@@ -8,7 +8,7 @@ class Sentence(BaseModel):
 
 
 class Keywords(BaseModel):
-    keywords: List[str]
+    keywords: Annotated[list[str], Field(min_items=2)]
 
 
 class EmbeddedKeyword(BaseModel):
@@ -18,4 +18,4 @@ class EmbeddedKeyword(BaseModel):
 
 
 class Embeddings(BaseModel):
-    keywords: List[EmbeddedKeyword]
+    keywords: list[EmbeddedKeyword]
