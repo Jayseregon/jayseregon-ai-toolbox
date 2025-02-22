@@ -30,7 +30,7 @@ async def create_embeddings(
 ):
     """Create embeddings from a list of keywords."""
     logger.debug(f"Processing keywords embedding for {keywords.keywords}")
-    return embedding_service.process_keywords(keywords.keywords)
+    return await embedding_service.process_keywords(keywords.keywords)
 
 
 @router.post(
@@ -44,4 +44,4 @@ async def process_demo_text(
     """Create embeddings from a sentence split into words."""
     logger.debug(f"Processing sentence embedding for {sentence.text}")
     keywords = sentence.text.split()
-    return embedding_service.process_keywords(keywords)
+    return await embedding_service.process_keywords(keywords)

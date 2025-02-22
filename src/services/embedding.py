@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import List, Literal, Tuple
 
@@ -58,14 +59,14 @@ class EmbeddingService:
             ]
         )
 
-    def process_keywords(
+    async def process_keywords(
         self,
         keywords: List[str],
     ) -> Embeddings:
         try:
-            embeddings = self.create_embeddings(keywords)
-            reduced = self.reduce_dimensions(embeddings)
-            normalized = self.get_normalized_list(reduced)
+            embeddings = await asyncio.to_thread(self.create_embeddings, keywords)
+            reduced = await asyncio.to_thread(self.reduce_dimensions, embeddings)
+            normalized = await asyncio.to_thread(self.get_normalized_list, reduced)
             return self.get_embeddings(normalized, keywords)
         except HTTPException:
             raise
