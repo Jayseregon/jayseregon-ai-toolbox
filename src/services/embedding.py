@@ -69,6 +69,7 @@ class EmbeddingService:
             normalized = await asyncio.to_thread(self.get_normalized_list, reduced)
             return self.get_embeddings(normalized, keywords)
         except HTTPException:
+            # Re-raise HTTP exceptions
             raise
         except Exception as e:
             logger.error(f"Keyword processing failed: {str(e)}")

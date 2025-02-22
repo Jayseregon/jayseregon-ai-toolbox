@@ -1,7 +1,10 @@
 import os
 from typing import AsyncGenerator, Generator
+from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
@@ -47,7 +50,7 @@ async def async_client(client) -> AsyncGenerator:
         yield ac
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def mock_rate_limiter():
     """Initialize rate limiter with a dummy backend for all tests."""
     backend = DummyBackend()
@@ -77,3 +80,26 @@ def mock_env_state(monkeypatch):
                 monkeypatch.setenv(key, value)
 
     return _set_env
+
+
+@pytest.fixture
+def mock_embeddings():
+    return np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8], [0.9, 0.1, 0.2, 0.3]])
+
+
+@pytest.fixture
+def mock_sentence_transformer(monkeypatch):
+    """Mock SentenceTransformer for testing"""
+    mock = MagicMock()
+    mock.encode.return_value = np.array(
+        [[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8], [0.9, 0.1, 0.2, 0.3]]
+    )
+
+    def mock_init(self, *args, **kwargs):
+        self.model = mock
+        return None
+
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer.__init__", mock_init)
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer.encode", mock.encode)
+
+    return mock
