@@ -1,12 +1,15 @@
 import os
-from typing import AsyncGenerator, Generator
+from typing import Any, AsyncGenerator, Generator, MutableMapping
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 import pytest_asyncio
+from fastapi import FastAPI
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from src.security.rateLimiter import FastAPILimiter
 
@@ -43,11 +46,59 @@ def client() -> Generator:
     yield TestClient(app)
 
 
-@pytest.fixture()
-async def async_client(client) -> AsyncGenerator:
+@pytest_asyncio.fixture
+async def async_client(client) -> AsyncGenerator[AsyncClient, None]:
+    """Create async client for testing"""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url=client.base_url) as ac:
         yield ac
+
+
+class SecurityHeadersMiddleware:
+    """Custom middleware to add security headers for HTTPS requests"""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        is_secure = scope.get("scheme", "http") == "https" or any(
+            h
+            for h in scope.get("headers", [])
+            if h[0] == b"x-forwarded-proto" and h[1] == b"https"
+        )
+
+        async def wrapped_send(message: MutableMapping[str, Any]) -> None:
+            if message["type"] == "http.response.start" and is_secure:
+                headers = list(message.get("headers", []))
+                headers.append(
+                    (
+                        b"strict-transport-security",
+                        b"max-age=31536000; includeSubDomains",
+                    )
+                )
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, wrapped_send)
+
+
+@pytest_asyncio.fixture
+async def https_app() -> FastAPI:
+    """Creates a FastAPI app instance configured for HTTPS testing"""
+    app = FastAPI()
+
+    # Add security headers middleware first
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+    @app.get("/")
+    async def test_root():
+        return {"message": "test"}
+
+    return app
 
 
 @pytest_asyncio.fixture(autouse=True)
