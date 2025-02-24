@@ -25,26 +25,27 @@ logger = logging.getLogger(__name__)
 
 
 async def get_backend_instance():
-    if config.ENV_STATE == "prod":
-        # Use Redis as the rate limiter backend for production
-        logger.info("Using Redis as the rate limiter backend")
-        redis_client = redis.from_url(config.REDIS_URL)
+    logger.info(f"ENV_STATE: {config.ENV_STATE}")
+    if config.ENV_STATE != "prod":
+        # Use Valkey as the rate limiter backend for development
+        logger.info("Using Valkey as the rate limiter backend")
+        valkey_client = valkey.from_url(config.VALKEY_URL)
 
-        if not redis_client:
-            logger.error("Please configure Redis client for rate limiting")
-            raise Exception("Please configure Redis client for rate limiting")
+        if not valkey_client:
+            logger.error("Please configure Valkey client for rate limiting")
+            raise Exception("Please configure Valkey client for rate limiting")
 
-        return RedisRateLimiterBackend(redis_client)
+        return ValkeyRateLimiterBackend(valkey_client)
 
-    # Use Valkey as the rate limiter backend for development
-    logger.info("Using Valkey as the rate limiter backend")
-    valkey_client = valkey.from_url(config.VALKEY_URL)
+    # Use Redis as the rate limiter backend for production
+    logger.info("Using Redis as the rate limiter backend")
+    redis_client = redis.from_url(config.REDIS_URL)
 
-    if not valkey_client:
-        logger.error("Please configure Valkey client for rate limiting")
-        raise Exception("Please configure Valkey client for rate limiting")
+    if not redis_client:
+        logger.error("Please configure Redis client for rate limiting")
+        raise Exception("Please configure Redis client for rate limiting")
 
-    return ValkeyRateLimiterBackend(valkey_client)
+    return RedisRateLimiterBackend(redis_client)
 
 
 @asynccontextmanager

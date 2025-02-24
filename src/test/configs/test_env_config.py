@@ -11,10 +11,14 @@ from src.configs.env_config import (
 
 
 def test_base_config(monkeypatch):
-    """Test BaseConfig with test environment"""
-    config = BaseConfig()
+    """Test BaseConfig without environment"""
+    # Clear any existing ENV_STATE from os.environ
+    monkeypatch.delenv("ENV_STATE", raising=False)
+
+    # Override .env loading by passing _env_file=""
+    config = BaseConfig(_env_file="")
     assert hasattr(config, "ENV_STATE")
-    assert config.ENV_STATE == "test"
+    assert config.ENV_STATE is None
 
 
 def test_global_config_defaults():
@@ -51,14 +55,26 @@ def test_environment_specific_configs():
         ("test", EnvTestConfig),
     ],
 )
-def test_get_config(env_state, expected_config):
-    config = get_config(env_state)
+def test_get_config(env_state, expected_config, monkeypatch):
+    # Clear the lru_cache
+    get_config.cache_clear()
+    # Set the environment state
+    monkeypatch.setenv("ENV_STATE", env_state)
+
+    config = get_config()
     assert isinstance(config, expected_config)
+    assert config.ENV_STATE == env_state
 
 
-def test_get_config_invalid_env():
-    with pytest.raises(KeyError):
-        get_config("invalid")
+def test_get_config_invalid_env(monkeypatch):
+    # Clear the lru_cache
+    get_config.cache_clear()
+    # Set an invalid environment state
+    monkeypatch.setenv("ENV_STATE", "invalid")
+
+    # Should default to ProdConfig when invalid
+    config = get_config()
+    assert isinstance(config, ProdConfig)
 
 
 @pytest.mark.parametrize(
